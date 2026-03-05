@@ -2,9 +2,38 @@
 <html>
 <head>
 
+<meta charset="UTF-8">
+
 <title>Snake Worksheet Generator</title>
 
 <link rel="stylesheet" href="styles.css">
+
+<style>
+
+body{
+  font-family: Arial;
+  padding:40px;
+}
+
+.controls{
+  margin-bottom:25px;
+}
+
+.controls label{
+  margin-right:6px;
+}
+
+.controls input{
+  width:80px;
+  margin-right:15px;
+}
+
+button{
+  padding:6px 12px;
+  font-size:14px;
+}
+
+</style>
 
 </head>
 
@@ -12,19 +41,26 @@
 
 <h1>Snake Worksheet Generator</h1>
 
-<button onclick="generate()">Generate</button>
+<div class="controls">
 
-<button onclick="window.print()">Print</button>
+<label>Min Bound</label>
+<input id="minBound" type="number" placeholder="-10">
+
+<label>Max Bound</label>
+<input id="maxBound" type="number" placeholder="10">
+
+<label>Max Operation Size</label>
+<input id="maxOp" type="number" value="4">
+
+<button onclick="generate()">Generate Puzzle</button>
+
+</div>
 
 <div id="worksheet"></div>
 
-<script src="snakeLayouts.js"></script>
-<script src="seedrandom.js"></script>
-<script src="generator.js"></script>
 
-<script>
-generate()
-</script>
+<script src="snakeLayouts.js"></script>
+<script src="generator.js"></script>
 
 </body>
 </html>
