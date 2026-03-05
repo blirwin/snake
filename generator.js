@@ -57,9 +57,8 @@ function applyOp(current, op) {
 }
 
 /**
- * Read constraints:
- * - Inputs are prepopulated with 10 in HTML, but if user clears them,
- *   we treat them as null and do NOT auto-fill.
+ * Inputs are prepopulated with 10 in HTML.
+ * If user clears them, we treat as null and DO NOT auto-refill.
  */
 function readConstraints() {
   let MIN = readNumber("minBound")
@@ -195,7 +194,6 @@ function puzzlesEqual(a, b) {
   return true
 }
 
-/** Compute grid dimensions from layout coords */
 function getLayoutDims(layout) {
   let maxX = 0
   let maxY = 0
@@ -203,14 +201,9 @@ function getLayoutDims(layout) {
     if (x > maxX) maxX = x
     if (y > maxY) maxY = y
   }
-  // coords are 0-based; cols/rows are +1
   return { cols: maxX + 1, rows: maxY + 1 }
 }
 
-/**
- * Ensure each worksheet has a sizer wrapper so we can scale it.
- * If it already exists, reuse it.
- */
 function ensureSizer(gridEl) {
   let sizer = gridEl.parentElement
   if (!sizer || !sizer.classList.contains("worksheetSizer")) {
@@ -223,8 +216,8 @@ function ensureSizer(gridEl) {
 }
 
 /**
- * Compute and apply scale so the puzzle fits inside its card.
- * We do this AFTER render, because we need real container width.
+ * FIX: Use available width INSIDE the padding.
+ * Previously you used clientWidth which includes padding, so you under-scaled and clipped right edge.
  */
 function fitToContainer(containerId, cols, rows) {
   const grid = mustGetEl(containerId)
@@ -235,24 +228,26 @@ function fitToContainer(containerId, cols, rows) {
   const cellH = parseFloat(rootStyles.getPropertyValue("--cell-h")) || 82
   const gap = parseFloat(rootStyles.getPropertyValue("--cell-gap")) || 16
 
-  // Total intrinsic puzzle size (grid gaps are between tracks)
   const gridW = cols * cellW + (cols - 1) * gap
   const gridH = rows * cellH + (rows - 1) * gap
 
-  // Available width inside puzzleCard = its content box
   const card = grid.closest(".puzzleCard")
-  const availableW = card ? card.clientWidth : gridW
+  let availableW = gridW
 
-  // Scale down if needed. Never scale up.
+  if (card) {
+    const cs = getComputedStyle(card)
+    const padL = parseFloat(cs.paddingLeft) || 0
+    const padR = parseFloat(cs.paddingRight) || 0
+    // Small safety margin to avoid fractional rounding clipping
+    const safety = 2
+    availableW = Math.max(50, card.clientWidth - padL - padR - safety)
+  }
+
   const scale = Math.min(1, availableW / gridW)
 
-  // Set variables so CSS can size wrapper properly
   sizer.style.setProperty("--scale", String(scale))
   sizer.style.setProperty("--grid-w", `${gridW}px`)
   sizer.style.setProperty("--grid-h", `${gridH}px`)
-
-  // Also set height so the scaled content doesn't overlap following content
-  // (scaled height is gridH * scale)
   sizer.style.height = `${gridH * scale}px`
 }
 
@@ -264,9 +259,7 @@ function renderTo(containerId, puzzle, showAnswers) {
   const lastIndex = layout.length - 1
   const { cols, rows } = getLayoutDims(layout)
 
-  // Set per-grid sizing variables
   grid.style.setProperty("--cols", String(cols))
-  // rows not needed for template, but used by fit calc
   grid.style.setProperty("--rows", String(rows))
 
   layout.forEach((pos, i) => {
@@ -294,10 +287,7 @@ function renderTo(containerId, puzzle, showAnswers) {
     grid.appendChild(cell)
   })
 
-  // Fit after DOM paint
-  requestAnimationFrame(() => {
-    fitToContainer(containerId, cols, rows)
-  })
+  requestAnimationFrame(() => fitToContainer(containerId, cols, rows))
 }
 
 function rerender() {
@@ -305,7 +295,6 @@ function rerender() {
     setStatus("No puzzles yet. Click Generate.")
     return
   }
-
   const showAnswers = readChecked("showAnswers")
   renderTo("worksheet1", CURRENT_PUZZLES[0], showAnswers)
   renderTo("worksheet2", CURRENT_PUZZLES[1], showAnswers)
@@ -351,7 +340,6 @@ function printWorksheet() {
   }
 
   const wantsKey = readChecked("printKey")
-
   if (wantsKey) {
     renderTo("key1", CURRENT_PUZZLES[0], true)
     renderTo("key2", CURRENT_PUZZLES[1], true)
@@ -364,24 +352,12 @@ function printWorksheet() {
   document.body.classList.remove("printingWithKey")
 }
 
-/* Re-fit on resize so it stays correct across screen sizes */
 window.addEventListener("resize", () => {
   if (!CURRENT_PUZZLES.length) return
-
-  // Re-fit currently rendered grids (no regeneration)
-  const layout1 = CURRENT_PUZZLES[0].layout
-  const layout2 = CURRENT_PUZZLES[1].layout
-  const d1 = getLayoutDims(layout1)
-  const d2 = getLayoutDims(layout2)
-
+  const d1 = getLayoutDims(CURRENT_PUZZLES[0].layout)
+  const d2 = getLayoutDims(CURRENT_PUZZLES[1].layout)
   fitToContainer("worksheet1", d1.cols, d1.rows)
   fitToContainer("worksheet2", d2.cols, d2.rows)
-
-  // key might exist in DOM if previously printed
-  const key1 = document.getElementById("key1")
-  const key2 = document.getElementById("key2")
-  if (key1 && key1.children.length) fitToContainer("key1", d1.cols, d1.rows)
-  if (key2 && key2.children.length) fitToContainer("key2", d2.cols, d2.rows)
 })
 
 generate()
