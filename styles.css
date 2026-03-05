@@ -118,16 +118,19 @@ html, body{
 }
 
 .inputSmall{
-  width: 6ch;              /* appropriate for <= 4 chars, still usable */
-  min-width: 6ch;
+  width: 8ch;            /* room for ~4 digits comfortably */
+  min-width: 8ch;
   max-width: 8ch;
+
+  padding: 10px 12px;
+  font-size: 15px;
+
   border: 1px solid var(--border-strong);
   border-radius: 12px;
-  padding: 10px 10px;
-  font-size: 15px;
   background: #fff;
   outline: none;
-  text-align: left;
+
+  text-align: center;    /* numbers look cleaner centered */
 }
 
 .inputSmall:focus{
