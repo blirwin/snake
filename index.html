@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Snake Worksheet Generator</title>
-  <link rel="stylesheet" href="./styles.css?v=7" />
+  <link rel="stylesheet" href="./styles.css?v=8" />
 </head>
 
 <body>
@@ -52,11 +52,10 @@
         </div>
       </div>
 
-      <!-- Row 1: ops + main actions -->
-      <div class="opsRow">
-        <div class="ops">
-          <div class="label" style="margin-right:6px;">Allowed operations</div>
-
+      <!-- Row 1: Allowed operations -->
+      <div class="controlRow">
+        <div class="rowLabel">Allowed operations</div>
+        <div class="rowContent">
           <label class="pill">
             <input id="allowAdd" type="checkbox" checked />
             <span>Add</span>
@@ -77,16 +76,12 @@
             <span>Divide</span>
           </label>
         </div>
-
-        <div class="actions">
-          <button class="btn primary" onclick="generate()">Generate Puzzles</button>
-          <button class="btn" onclick="printWorksheet()">Print</button>
-        </div>
       </div>
 
-      <!-- Row 2: answer controls -->
-      <div class="answerRow">
-        <div class="answers">
+      <!-- Row 2: Answer keys -->
+      <div class="controlRow">
+        <div class="rowLabel">Answer keys</div>
+        <div class="rowContent">
           <label class="pill" title="Reveal answers on screen (does not regenerate)">
             <input id="showAnswers" type="checkbox" onchange="rerender()" />
             <span>Display Answers</span>
@@ -97,6 +92,12 @@
             <span>Include answer page</span>
           </label>
         </div>
+      </div>
+
+      <!-- Row 3: Buttons only -->
+      <div class="buttonRow">
+        <button class="btn primary" onclick="generate()">Generate Puzzles</button>
+        <button class="btn" onclick="printWorksheet()">Print Puzzles</button>
       </div>
 
       <div id="status" class="status"></div>
