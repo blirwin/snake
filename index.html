@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Snake Worksheet Generator</title>
-  <link rel="stylesheet" href="./styles.css?v=8" />
+  <link rel="stylesheet" href="./styles.css?v=9" />
 </head>
 
 <body>
@@ -15,86 +15,83 @@
     </div>
 
     <div class="card controlsCard">
-      <div class="controls">
-        <div class="block">
+      <!-- Inputs -->
+      <div class="inputGrid">
+        <div class="field">
           <div class="label">Min Bound</div>
           <input id="minBound" class="input" type="number" placeholder="(blank = no min)" />
         </div>
 
-        <div class="block">
+        <div class="field">
           <div class="label">Max Bound</div>
           <input id="maxBound" class="input" type="number" placeholder="(blank = no max)" />
         </div>
 
-        <div class="block">
-          <div class="label">How it works</div>
-          <div class="hint">If you check an operation, you must enter its max (Add/Sub ≥ 1; Multiply/Divide ≥ 2).</div>
-        </div>
-      </div>
-
-      <div class="limits">
-        <div class="block">
+        <div class="field">
           <div class="label">Max Add/Sub Amount</div>
           <input id="maxAddSub" class="input" type="number" min="1" step="1" value="10" />
           <div class="hint">Used for + and − steps.</div>
         </div>
 
-        <div class="block">
+        <div class="field">
           <div class="label">Max Multiply Factor</div>
           <input id="maxMul" class="input" type="number" min="2" step="1" value="10" />
           <div class="hint">Used for × factors (2+).</div>
         </div>
 
-        <div class="block">
+        <div class="field">
           <div class="label">Max Divide Divisor</div>
           <input id="maxDiv" class="input" type="number" min="2" step="1" value="10" />
           <div class="hint">Used for ÷ divisors (2+).</div>
         </div>
-      </div>
 
-      <!-- Row 1: Allowed operations -->
-      <div class="controlRow">
-        <div class="rowLabel">Allowed operations</div>
-        <div class="rowContent">
-          <label class="pill">
-            <input id="allowAdd" type="checkbox" checked />
-            <span>Add</span>
-          </label>
-
-          <label class="pill">
-            <input id="allowSub" type="checkbox" checked />
-            <span>Subtract</span>
-          </label>
-
-          <label class="pill">
-            <input id="allowMul" type="checkbox" />
-            <span>Multiply</span>
-          </label>
-
-          <label class="pill">
-            <input id="allowDiv" type="checkbox" />
-            <span>Divide</span>
-          </label>
+        <div class="field howItWorks">
+          <div class="label">How it works</div>
+          <div class="hint">
+            If you check an operation, you must enter its max (Add/Sub ≥ 1; Multiply/Divide ≥ 2).
+          </div>
         </div>
       </div>
 
-      <!-- Row 2: Answer keys -->
-      <div class="controlRow">
-        <div class="rowLabel">Answer keys</div>
-        <div class="rowContent">
-          <label class="pill" title="Reveal answers on screen (does not regenerate)">
-            <input id="showAnswers" type="checkbox" onchange="rerender()" />
-            <span>Display Answers</span>
-          </label>
+      <!-- Allowed operations -->
+      <div class="sectionHeader">Allowed operations</div>
+      <div class="pillRow">
+        <label class="pill">
+          <input id="allowAdd" type="checkbox" checked />
+          <span>Add</span>
+        </label>
 
-          <label class="pill" title="When printing, add a second page with the answer key">
-            <input id="printKey" type="checkbox" />
-            <span>Include answer page</span>
-          </label>
-        </div>
+        <label class="pill">
+          <input id="allowSub" type="checkbox" checked />
+          <span>Subtract</span>
+        </label>
+
+        <label class="pill">
+          <input id="allowMul" type="checkbox" />
+          <span>Multiply</span>
+        </label>
+
+        <label class="pill">
+          <input id="allowDiv" type="checkbox" />
+          <span>Divide</span>
+        </label>
       </div>
 
-      <!-- Row 3: Buttons only -->
+      <!-- Answer keys -->
+      <div class="sectionHeader">Answer keys</div>
+      <div class="pillRow">
+        <label class="pill" title="Reveal answers on screen (does not regenerate)">
+          <input id="showAnswers" type="checkbox" onchange="rerender()" />
+          <span>Display Answers</span>
+        </label>
+
+        <label class="pill" title="When printing, add a second page with the answer key">
+          <input id="printKey" type="checkbox" />
+          <span>Include answer page</span>
+        </label>
+      </div>
+
+      <!-- Actions -->
       <div class="buttonRow">
         <button class="btn primary" onclick="generate()">Generate Puzzles</button>
         <button class="btn" onclick="printWorksheet()">Print Puzzles</button>
@@ -124,7 +121,7 @@
       </div>
     </div>
 
-    <!-- ANSWER KEY (hidden unless printing + checkbox checked) -->
+    <!-- ANSWER KEY -->
     <div class="workspace answerKeySection" id="answerKey">
       <div class="pageBreak"></div>
       <div class="sheet">
