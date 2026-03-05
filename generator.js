@@ -2,36 +2,124 @@
 // Helpers
 // ==============================
 
-function readNumberInput(id) {
+function mustGetEl(id) {
   const el = document.getElementById(id)
-  if (!el) return NaN
-  return parseInt(el.value, 10)
+  if (!el) throw new Error(`Missing element with id="${id}"`)
+  return el
+}
+
+function readNumber(id) {
+  // valueAsNumber returns a number or NaN for empty/invalid input :contentReference[oaicite:1]{index=1}
+  return mustGetEl(id).valueAsNumber
+}
+
+function readChecked(id) {
+  // checkbox state is on the .checked property :contentReference[oaicite:2]{index=2}
+  return !!mustGetEl(id).checked
 }
 
 function normalizeLayout(rawLayout) {
-  // Layout must be: index 0 start, odd = op, even = blank
-  // => length must be odd so it ends on a blank.
+  // We assume layout indices map to: 0=start, odd=op, even=blank
+  // => layout length must be odd so it ends on a blank result.
   if (!Array.isArray(rawLayout) || rawLayout.length < 3) {
     throw new Error("Layout missing or too short.")
   }
   return (rawLayout.length % 2 === 0) ? rawLayout.slice(0, -1) : rawLayout
 }
 
-function randInt(lo, hiInclusive) {
-  return Math.floor(Math.random() * (hiInclusive - loInclusive + 1)) + loInclusive
+function randomIntInclusive(lo, hi) {
+  return Math.floor(Math.random() * (hi - lo + 1)) + lo
 }
 
-// Safer randInt that works with normal numbers only
-function randIntSafe(lo, hiInclusive) {
-  return Math.floor(Math.random() * (hiInclusive - lo + 1)) + lo
-}
-
-function randomNonZeroOp(maxOp) {
-  let op = 0
-  while (op === 0) {
-    op = Math.floor(Math.random() * (maxOp * 2 + 1)) - maxOp
+function clampToFiniteStart(minVal, maxVal) {
+  // If user left one side blank, choose a small reasonable start.
+  // If both finite, choose uniformly inside [min,max].
+  if (Number.isFinite(minVal) && Number.isFinite(maxVal)) {
+    return randomIntInclusive(minVal, maxVal)
   }
-  return op
+  // Otherwise default to 1..10 (keeps typical worksheet feel)
+  return randomIntInclusive(1, 10)
+}
+
+function formatOp(op) {
+  // op object: { type: 'add'|'sub'|'mul'|'div', n: number }
+  switch (op.type) {
+    case "add": return `+${op.n}`
+    case "sub": return `-${op.n}`
+    case "mul": return `×${op.n}`
+    case "div": return `÷${op.n}`
+    default: return ""
+  }
+}
+
+function applyOp(current, op) {
+  switch (op.type) {
+    case "add": return current + op.n
+    case "sub": return current - op.n
+    case "mul": return current * op.n
+    case "div": return current / op.n
+    default: throw new Error("Unknown op type")
+  }
+}
+
+function getAllowedOpTypes() {
+  const allowed = []
+  if (readChecked("allowAdd")) allowed.push("add")
+  if (readChecked("allowSub")) allowed.push("sub")
+  if (readChecked("allowMul")) allowed.push("mul")
+  if (readChecked("allowDiv")) allowed.push("div")
+
+  // If user unchecks everything, fail safe to + and -.
+  if (allowed.length === 0) return ["add", "sub"]
+  return allowed
+}
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+function inBounds(x, MIN, MAX) {
+  return x >= MIN && x <= MAX
+}
+
+// ==============================
+// Operation generation
+// ==============================
+
+function generateOpForCurrent(currentValue, maxOp, allowedTypes, MIN, MAX) {
+  // Try a bunch of candidates; return the first that keeps next value valid.
+  // This avoids weird puzzles where bounds are tight.
+  const MAX_TRIES = 2000
+
+  for (let t = 0; t < MAX_TRIES; t++) {
+    const type = pickRandom(allowedTypes)
+
+    // Choose magnitude/factor/divisor
+    // - For +/-, n in [1..maxOp]
+    // - For ×/÷, n in [2..maxOp] (exclude 1; it's boring)
+    let nMin = (type === "mul" || type === "div") ? 2 : 1
+    let nMax = Math.max(nMin, Math.floor(maxOp))
+
+    const n = randomIntInclusive(nMin, nMax)
+    const op = { type, n }
+
+    // Division must be integer (no fractions)
+    if (type === "div") {
+      if (n === 0) continue
+      if (currentValue % n !== 0) continue
+    }
+
+    const next = applyOp(currentValue, op)
+
+    // Guard division correctness
+    if (type === "div" && !Number.isInteger(next)) continue
+
+    if (!inBounds(next, MIN, MAX)) continue
+
+    return { op, next }
+  }
+
+  return null
 }
 
 // ==============================
@@ -39,61 +127,43 @@ function randomNonZeroOp(maxOp) {
 // ==============================
 
 function generate() {
-  // Pick layout
   const layout = normalizeLayout(layouts.snake1)
+  const steps = (layout.length - 1) / 2
 
   // Bounds from UI (blank => no bound)
-  let MIN = readNumberInput("minBound")
-  let MAX = readNumberInput("maxBound")
+  let MIN = readNumber("minBound")
+  let MAX = readNumber("maxBound")
   if (Number.isNaN(MIN)) MIN = -Infinity
   if (Number.isNaN(MAX)) MAX = Infinity
   if (MIN > MAX) [MIN, MAX] = [MAX, MIN]
 
-  // Max operation size from UI
-  let maxOp = readNumberInput("maxOp")
+  // Max op from UI
+  let maxOp = readNumber("maxOp")
   if (Number.isNaN(maxOp) || maxOp < 1) maxOp = 4
 
-  const steps = (layout.length - 1) / 2
+  const allowedTypes = getAllowedOpTypes()
 
-  // Choose start value:
-  // - if both bounds finite, pick start within them
-  // - otherwise default to 1..10 (keeps things reasonable when unbounded)
-  let start
-  if (Number.isFinite(MIN) && Number.isFinite(MAX)) {
-    start = randIntSafe(MIN, MAX)
-  } else {
-    start = Math.floor(Math.random() * 10) + 1
-  }
+  // Start value
+  let start = clampToFiniteStart(MIN, MAX)
+  // Enforce bounds even if one side is infinite
+  if (start < MIN) start = MIN
+  if (start > MAX) start = MAX
 
   const values = [start]
   const ops = []
 
-  // Guard to prevent infinite loops when bounds are too tight
-  const MAX_TRIES_PER_STEP = 2000
-
   for (let i = 0; i < steps; i++) {
-    let tries = 0
-    let placed = false
+    const current = values[i]
+    const result = generateOpForCurrent(current, maxOp, allowedTypes, MIN, MAX)
 
-    while (tries < MAX_TRIES_PER_STEP) {
-      tries++
-
-      const op = randomNonZeroOp(maxOp)
-      const next = values[i] + op
-
-      if (next < MIN || next > MAX) continue
-
-      ops.push(op)
-      values.push(next)
-      placed = true
-      break
+    if (!result) {
+      // Bounds and allowed operations are too restrictive for this layout length.
+      console.warn("Could not generate a puzzle with these constraints. Try widening bounds, increasing maxOp, or allowing more operations.")
+      return
     }
 
-    if (!placed) {
-      console.warn("Could not generate within bounds/maxOp. Try widening bounds or reducing maxOp/steps.")
-      // Try again from scratch
-      return generate()
-    }
+    ops.push(result.op)
+    values.push(result.next)
   }
 
   validateSnake(values, ops)
@@ -106,12 +176,13 @@ function generate() {
 
 function validateSnake(values, ops) {
   for (let i = 0; i < ops.length; i++) {
-    if (values[i] + ops[i] !== values[i + 1]) {
-      console.error("Snake math mismatch at step", i, {
-        left: values[i],
-        op: ops[i],
-        right: values[i + 1],
-      })
+    const expected = applyOp(values[i], ops[i])
+    if (expected !== values[i + 1]) {
+      console.error("Snake mismatch at step", i, { left: values[i], op: ops[i], right: values[i + 1], expected })
+      return false
+    }
+    if (ops[i].type === "div" && !Number.isInteger(values[i + 1])) {
+      console.error("Non-integer division result at step", i)
       return false
     }
   }
@@ -120,12 +191,12 @@ function validateSnake(values, ops) {
 
 // ==============================
 // Rendering
-// - layout order IS the path order (turns + reversals are handled by coordinates)
-// - Only the final blank shows the answer
+// - layout order IS the path order
+// - Only the final blank reveals the answer
 // ==============================
 
 function render(layout, values, ops) {
-  const grid = document.getElementById("worksheet")
+  const grid = mustGetEl("worksheet")
   grid.innerHTML = ""
 
   const lastIndex = layout.length - 1
@@ -137,30 +208,20 @@ function render(layout, values, ops) {
     cell.style.gridRow = pos[1] + 1
 
     if (i === 0) {
-      // Start value
       cell.innerText = values[0]
     } else if (i % 2 === 1) {
-      // Operation cell
       const op = ops[(i - 1) / 2]
-      cell.innerText = op > 0 ? `+${op}` : `${op}`
+      cell.innerText = formatOp(op)
       cell.classList.add("op")
     } else {
-      // Blank answer cell
       cell.classList.add("blank")
-
-      // Only reveal the final answer in the last blank cell
-      if (i === lastIndex) {
-        cell.innerText = values[values.length - 1]
-      } else {
-        cell.innerText = ""
-      }
+      // reveal only the final blank (self-check)
+      cell.innerText = (i === lastIndex) ? String(values[values.length - 1]) : ""
     }
 
     grid.appendChild(cell)
   })
 }
 
-// ==============================
 // Auto-run on load
-// ==============================
 generate()
