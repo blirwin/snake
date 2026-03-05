@@ -4,72 +4,93 @@
   <meta charset="UTF-8" />
   <title>Snake Worksheet Generator</title>
   <link rel="stylesheet" href="styles.css" />
-  <style>
-    body { font-family: Arial; padding: 40px; }
-    .controls { margin-bottom: 25px; display: flex; flex-direction: column; gap: 14px; }
-    .row { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: center; }
-    .row > div { display: flex; align-items: center; gap: 8px; }
-    input[type="number"] { width: 140px; }
-    button { padding: 8px 14px; font-size: 14px; }
-    .hint { color: #555; font-size: 12px; margin-top: 2px; }
-    .status { margin-top: 8px; color: #b00020; font-size: 13px; min-height: 18px; }
-    .ops { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
-    .ops label { display: inline-flex; align-items: center; gap: 8px; }
-  </style>
 </head>
 
 <body>
-  <h1>Snake Worksheet Generator</h1>
-
-  <div class="controls">
-
-    <div class="row">
-      <div>
-        <label for="minBound">Min Bound</label>
-        <input id="minBound" type="number" placeholder="(blank = no min)" />
-      </div>
-
-      <div>
-        <label for="maxBound">Max Bound</label>
-        <input id="maxBound" type="number" placeholder="(blank = no max)" />
-      </div>
+  <div class="page">
+    <div class="header">
+      <h1>Snake Worksheet Generator</h1>
+      <p class="subhead">Generate printable “snake” math chains with configurable bounds and operations.</p>
     </div>
 
-    <div class="row">
-      <div>
-        <label for="maxAddSub">Max Add/Sub Amount</label>
-        <input id="maxAddSub" type="number" min="1" step="1" placeholder="e.g. 10" />
+    <div class="card controlsCard">
+      <div class="controls">
+        <div class="block">
+          <div class="label">Min Bound</div>
+          <input id="minBound" class="input" type="number" placeholder="(blank = no min)" />
+        </div>
+
+        <div class="block">
+          <div class="label">Max Bound</div>
+          <input id="maxBound" class="input" type="number" placeholder="(blank = no max)" />
+        </div>
+
+        <div class="block">
+          <div class="label">How it works</div>
+          <div class="hint">If you check an operation, you must enter its max (Add/Sub ≥ 1; Multiply/Divide ≥ 2).</div>
+        </div>
       </div>
 
-      <div>
-        <label for="maxMul">Max Multiply Factor</label>
-        <input id="maxMul" type="number" min="2" step="1" placeholder="e.g. 6" />
+      <div class="limits">
+        <div class="block">
+          <div class="label">Max Add/Sub Amount</div>
+          <input id="maxAddSub" class="input" type="number" min="1" step="1" placeholder="e.g. 10" />
+          <div class="hint">Used for + and − steps.</div>
+        </div>
+
+        <div class="block">
+          <div class="label">Max Multiply Factor</div>
+          <input id="maxMul" class="input" type="number" min="2" step="1" placeholder="e.g. 6" />
+          <div class="hint">Used for × factors (2+).</div>
+        </div>
+
+        <div class="block">
+          <div class="label">Max Divide Divisor</div>
+          <input id="maxDiv" class="input" type="number" min="2" step="1" placeholder="e.g. 6" />
+          <div class="hint">Used for ÷ divisors (2+).</div>
+        </div>
       </div>
 
-      <div>
-        <label for="maxDiv">Max Divide Divisor</label>
-        <input id="maxDiv" type="number" min="2" step="1" placeholder="e.g. 6" />
+      <div class="opsRow">
+        <div class="ops">
+          <div class="label" style="margin-right:6px;">Allowed operations</div>
+
+          <label class="pill">
+            <input id="allowAdd" type="checkbox" checked />
+            <span>Add</span>
+          </label>
+
+          <label class="pill">
+            <input id="allowSub" type="checkbox" checked />
+            <span>Subtract</span>
+          </label>
+
+          <label class="pill">
+            <input id="allowMul" type="checkbox" />
+            <span>Multiply</span>
+          </label>
+
+          <label class="pill">
+            <input id="allowDiv" type="checkbox" />
+            <span>Divide</span>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" onclick="generate()">Generate</button>
+          <button class="btn" onclick="window.print()">Print</button>
+        </div>
+      </div>
+
+      <div id="status" class="status"></div>
+    </div>
+
+    <div class="workspace">
+      <div class="sheet">
+        <div id="worksheet"></div>
       </div>
     </div>
-
-    <div class="row ops">
-      <span>Allowed operations:</span>
-      <label><input id="allowAdd" type="checkbox" checked /> Addition</label>
-      <label><input id="allowSub" type="checkbox" checked /> Subtraction</label>
-      <label><input id="allowMul" type="checkbox" /> Multiplication</label>
-      <label><input id="allowDiv" type="checkbox" /> Division</label>
-
-      <button onclick="generate()">Generate Puzzle</button>
-      <button onclick="window.print()">Print</button>
-    </div>
-
-    <div class="hint">
-      Tip: If you check an operation, you must also enter its max (Add/Sub ≥ 1; Multiply/Divide ≥ 2).
-    </div>
-    <div id="status" class="status"></div>
   </div>
-
-  <div id="worksheet"></div>
 
   <script src="snakeLayouts.js"></script>
   <script src="generator.js"></script>
