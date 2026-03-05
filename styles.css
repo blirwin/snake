@@ -22,7 +22,7 @@ html, body{
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
 }
 
 .page{
@@ -51,7 +51,6 @@ html, body{
   margin: 0;
 }
 
-/* Card */
 .card{
   background: var(--card);
   border: 1px solid var(--border);
@@ -68,7 +67,6 @@ html, body{
   padding: 12px 14px;
   margin-bottom: 14px;
 }
-
 .calloutTitle{
   font-size: 12px;
   font-weight: 900;
@@ -77,14 +75,13 @@ html, body{
   color: var(--muted);
   margin-bottom: 6px;
 }
-
 .calloutText{
   font-size: 13px;
   line-height: 1.4;
   color: #374151;
 }
 
-/* Compact input panel */
+/* Inputs */
 .inputPanel{
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -98,10 +95,7 @@ html, body{
   gap: 12px 22px;
   align-items: center;
 }
-
-.inputRow + .inputRow{
-  margin-top: 12px;
-}
+.inputRow + .inputRow{ margin-top: 12px; }
 
 .fieldInline{
   display: inline-flex;
@@ -114,23 +108,20 @@ html, body{
   font-size: 13px;
   font-weight: 800;
   color: #374151;
-  min-width: 120px; /* keeps a tidy column feel */
+  min-width: 120px;
 }
 
 .inputSmall{
-  width: 8ch;            /* room for ~4 digits comfortably */
+  width: 8ch;
   min-width: 8ch;
   max-width: 8ch;
-
   padding: 10px 12px;
   font-size: 15px;
-
   border: 1px solid var(--border-strong);
   border-radius: 12px;
   background: #fff;
   outline: none;
-
-  text-align: center;    /* numbers look cleaner centered */
+  text-align: center;
 }
 
 .inputSmall:focus{
@@ -173,6 +164,10 @@ html, body{
   background: #fbfbfd;
 }
 
+.pillTight{
+  padding: 10px 12px;
+}
+
 .pill input{ width: 18px; height: 18px; }
 
 .pill span{
@@ -181,11 +176,12 @@ html, body{
   color: #111827;
 }
 
-/* Buttons */
-.buttonRow{
+/* Buttons row */
+.actionRow{
   margin-top: 16px;
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 10px 12px;
   align-items: center;
 }
 
@@ -206,7 +202,6 @@ html, body{
   color: #fff;
   border-color: #111827;
 }
-
 .btn.primary:hover{ background: #0b1220; }
 
 .status{
@@ -237,6 +232,8 @@ html, body{
   display: flex;
   flex-direction: column;
   gap: 10px;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .puzzleTitle{
@@ -257,12 +254,12 @@ html, body{
   overflow: hidden;
 }
 
-/* Scaled wrapper inserted by JS */
+/* Wrapper used for screen-fit scaling */
 .worksheetSizer{
   transform-origin: top left;
   transform: scale(var(--scale, 1));
-  width: var(--grid-w, 0px);
-  height: var(--grid-h, 0px);
+  width: var(--grid-w, auto);
+  height: var(--grid-h, auto);
 }
 
 /* Grid */
@@ -273,6 +270,7 @@ html, body{
   grid-auto-columns: var(--cell-w);
   grid-auto-rows: var(--cell-h);
   grid-template-columns: repeat(var(--cols, 12), var(--cell-w));
+  overflow: visible;
 }
 
 /* Cells */
@@ -294,9 +292,10 @@ html, body{
 
 /* Answer key hidden on screen */
 .answerKeySection{ display: none; }
-.pageBreak{ display: block; }
 
-/* Responsive */
+/* Page break element (only relevant to print) */
+.pageBreak{ display: none; }
+
 @media (max-width: 980px){
   .page{ padding: 24px 18px 32px; }
   .labelInline{ min-width: 110px; }
@@ -307,7 +306,7 @@ html, body{
   .miniHint{ white-space: normal; }
 }
 
-/* Print */
+/* PRINT */
 @media print{
   :root{
     --bg: #ffffff;
@@ -331,13 +330,11 @@ html, body{
 
   .controlsCard{ display: none; }
 
-  .card, .sheet{
+  .sheet{
     box-shadow: none;
     border: none;
     padding: 0;
   }
-
-  .sheet{ margin-top: 18px; }
 
   .puzzleCard{
     border: none;
@@ -356,13 +353,21 @@ html, body{
     print-color-adjust: exact;
   }
 
+  /* CRITICAL: avoid iOS overlap by removing transforms in print */
+  .worksheetSizer{
+    transform: none !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  /* Answer key printing control */
+  .answerKeySection{ display: none !important; }
+  body.printingWithKey .answerKeySection{ display: block !important; }
+
+  /* Page break between puzzles and answer page */
   .pageBreak{
+    display: block;
     break-before: page;
     page-break-before: always;
   }
-
-  .answerKeySection{ display: none; }
-  body.printingWithKey .answerKeySection{ display: block; }
-
-  .worksheetSizer{ transform: scale(1); }
 }
