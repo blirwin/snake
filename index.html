@@ -2,8 +2,9 @@
 <html>
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Snake Worksheet Generator</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=3" />
 </head>
 
 <body>
@@ -75,22 +76,29 @@
             <span>Divide</span>
           </label>
 
-          <label class="pill" title="Reveal answers for the current puzzles">
+          <label class="pill" title="Reveal answers on screen (does not change print behavior)">
             <input id="showAnswers" type="checkbox" onchange="rerender()" />
             <span>Show answers</span>
+          </label>
+
+          <!-- NEW -->
+          <label class="pill" title="When printing, add a second page with the answer key">
+            <input id="printKey" type="checkbox" />
+            <span>Answer key page</span>
           </label>
         </div>
 
         <div class="actions">
           <button class="btn primary" onclick="generate()">Generate (2)</button>
-          <button class="btn" onclick="window.print()">Print</button>
+          <button class="btn" onclick="printWorksheet()">Print</button>
         </div>
       </div>
 
       <div id="status" class="status"></div>
     </div>
 
-    <div class="workspace">
+    <!-- Student worksheets -->
+    <div class="workspace" id="studentSheet">
       <div class="sheet">
         <div class="sheetHeader">
           <div class="sheetTitle">Puzzle 1</div>
@@ -108,6 +116,28 @@
         </div>
       </div>
     </div>
+
+    <!-- Answer key (hidden on screen, used for printing when enabled) -->
+    <div class="workspace printOnly" id="answerKey">
+      <div class="pageBreak"></div>
+      <div class="sheet">
+        <div class="sheetHeader">
+          <div class="sheetTitle">Answer Key — Puzzle 1</div>
+          <div class="sheetTitle">Answer Key — Puzzle 2</div>
+        </div>
+
+        <div class="twoUp">
+          <div class="puzzleCard">
+            <div id="key1" class="worksheet"></div>
+          </div>
+
+          <div class="puzzleCard">
+            <div id="key2" class="worksheet"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script src="snakeLayouts.js"></script>
