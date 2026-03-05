@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Snake Worksheet Generator</title>
-  <link rel="stylesheet" href="./styles.css?v=3" />
+  <link rel="stylesheet" href="./styles.css?v=6" />
 </head>
 
 <body>
@@ -76,12 +76,11 @@
             <span>Divide</span>
           </label>
 
-          <label class="pill" title="Reveal answers on screen (does not change print behavior)">
+          <label class="pill" title="Reveal answers on screen (does not regenerate)">
             <input id="showAnswers" type="checkbox" onchange="rerender()" />
             <span>Show answers</span>
           </label>
 
-          <!-- NEW -->
           <label class="pill" title="When printing, add a second page with the answer key">
             <input id="printKey" type="checkbox" />
             <span>Answer key page</span>
@@ -97,43 +96,45 @@
       <div id="status" class="status"></div>
     </div>
 
-    <!-- Student worksheets -->
+    <!-- STUDENT PUZZLES -->
     <div class="workspace" id="studentSheet">
       <div class="sheet">
-        <div class="sheetHeader">
-          <div class="sheetTitle">Puzzle 1</div>
-          <div class="sheetTitle">Puzzle 2</div>
-        </div>
+        <div class="stack">
+          <section class="puzzleBlock">
+            <div class="puzzleTitle">Puzzle 1</div>
+            <div class="puzzleCard">
+              <div id="worksheet1" class="worksheet" aria-label="Puzzle 1"></div>
+            </div>
+          </section>
 
-        <div class="twoUp">
-          <div class="puzzleCard">
-            <div id="worksheet1" class="worksheet"></div>
-          </div>
-
-          <div class="puzzleCard">
-            <div id="worksheet2" class="worksheet"></div>
-          </div>
+          <section class="puzzleBlock">
+            <div class="puzzleTitle">Puzzle 2</div>
+            <div class="puzzleCard">
+              <div id="worksheet2" class="worksheet" aria-label="Puzzle 2"></div>
+            </div>
+          </section>
         </div>
       </div>
     </div>
 
-    <!-- Answer key (hidden on screen, used for printing when enabled) -->
-    <div class="workspace printOnly" id="answerKey">
+    <!-- ANSWER KEY (hidden unless printing + checkbox checked) -->
+    <div class="workspace answerKeySection" id="answerKey">
       <div class="pageBreak"></div>
       <div class="sheet">
-        <div class="sheetHeader">
-          <div class="sheetTitle">Answer Key — Puzzle 1</div>
-          <div class="sheetTitle">Answer Key — Puzzle 2</div>
-        </div>
+        <div class="stack">
+          <section class="puzzleBlock">
+            <div class="puzzleTitle">Answer Key — Puzzle 1</div>
+            <div class="puzzleCard">
+              <div id="key1" class="worksheet" aria-label="Answer Key Puzzle 1"></div>
+            </div>
+          </section>
 
-        <div class="twoUp">
-          <div class="puzzleCard">
-            <div id="key1" class="worksheet"></div>
-          </div>
-
-          <div class="puzzleCard">
-            <div id="key2" class="worksheet"></div>
-          </div>
+          <section class="puzzleBlock">
+            <div class="puzzleTitle">Answer Key — Puzzle 2</div>
+            <div class="puzzleCard">
+              <div id="key2" class="worksheet" aria-label="Answer Key Puzzle 2"></div>
+            </div>
+          </section>
         </div>
       </div>
     </div>
