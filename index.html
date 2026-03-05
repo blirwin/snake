@@ -75,9 +75,9 @@
             <span>Divide</span>
           </label>
 
-          <!-- NEW -->
-          <label class="pill" title="Fills every blank cell with its answer (good for answer keys)">
-            <input id="showAnswers" type="checkbox" />
+          <!-- NEW: rerender existing puzzle without regenerating -->
+          <label class="pill" title="Reveal answers for the current puzzle">
+            <input id="showAnswers" type="checkbox" onchange="rerender()" />
             <span>Show answers</span>
           </label>
         </div>
