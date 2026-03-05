@@ -1,163 +1,142 @@
 // ==============================
 // Seed handling
 // ==============================
-
 function getSeed() {
-
   const params = new URLSearchParams(window.location.search)
+  let seed = parseInt(params.get("seed"), 10)
+  if (!seed) seed = Math.floor(Math.random() * 100000)
 
-  let seed = parseInt(params.get("seed"))
-
-  if (!seed) {
-    seed = Math.floor(Math.random() * 100000)
-  }
-
-  // update URL so it can be shared
+  // Make shareable
   history.replaceState(null, "", "?seed=" + seed)
-
   return seed
 }
-
-
 
 // ==============================
 // Deterministic RNG
 // ==============================
-
 function seededRandom(seed) {
-
-  let x = Math.sin(seed) * 10000
+  const x = Math.sin(seed) * 10000
   return x - Math.floor(x)
-
 }
 
+// Exclude 0 ops: -4..-1, +1..+4
+function randomNonZeroOp(rand, maxAbs = 4) {
+  // generate integer in [-maxAbs, maxAbs] excluding 0
+  let op = 0
+  while (op === 0) {
+    op = Math.floor(rand() * (maxAbs * 2 + 1)) - maxAbs
+  }
+  return op
+}
 
+// Ensure layout length is odd (ends on a blank)
+function normalizeLayout(layout) {
+  if (!Array.isArray(layout) || layout.length < 3) {
+    throw new Error("Layout is missing or too short.")
+  }
+  if (layout.length % 2 === 0) {
+    // Drop the trailing op-cell to avoid undefined
+    console.warn(
+      "Layout length was even; dropping the last coordinate so the snake ends on a blank result cell."
+    )
+    return layout.slice(0, -1)
+  }
+  return layout
+}
 
 // ==============================
 // Main generator
 // ==============================
-
 function generate() {
-
   let seed = getSeed()
 
-  // RNG with advancing state
   function rand() {
     seed += 1
     return seededRandom(seed)
   }
 
-  const layout = layouts.snake1
+  // Pick your layout here
+  const layout = normalizeLayout(layouts.snake1)
 
-  let start = Math.floor(rand() * 10) + 1
+  const start = Math.floor(rand() * 10) + 1
+  const values = [start]
+  const ops = []
 
-  let values = [start]
-  let ops = []
+  // Number of operation slots in this layout:
+  // indices 1,3,5,... => count = (layout.length - 1) / 2
+  const opSlots = (layout.length - 1) / 2
 
-  const steps = Math.floor((layout.length - 1) / 2)
+  // Bounds to keep kid-friendly numbers
+  const MIN = -20
+  const MAX = 50
 
-  for (let i = 0; i < steps; i++) {
+  for (let i = 0; i < opSlots; i++) {
+    const op = randomNonZeroOp(rand, 4)
+    const next = values[i] + op
 
-    let op
-
-    // generate operations excluding +0
-    do {
-      op = Math.floor(rand() * 9) - 4
-    } while (op === 0)
-
-    let next = values[i] + op
-
-    // keep numbers readable
-    if (next < -20 || next > 50) {
+    if (next < MIN || next > MAX) {
+      // try again for this same slot
       i--
       continue
     }
 
     ops.push(op)
     values.push(next)
-
   }
 
-  // sanity check
   validateSnake(values, ops)
-
   render(layout, values, ops)
-
 }
-
-
-
-// ==============================
-// Validation (debug)
-// ==============================
 
 function validateSnake(values, ops) {
-
   for (let i = 0; i < ops.length; i++) {
-
     if (values[i] + ops[i] !== values[i + 1]) {
-
-      console.error("Snake math error at step", i)
-
+      console.error("Snake math mismatch at step", i, {
+        left: values[i],
+        op: ops[i],
+        right: values[i + 1],
+      })
+      return false
     }
-
   }
-
+  return true
 }
-
-
 
 // ==============================
 // Rendering
 // ==============================
-
 function render(layout, values, ops) {
-
   const grid = document.getElementById("worksheet")
-
   grid.innerHTML = ""
 
   layout.forEach((pos, i) => {
-
-    let cell = document.createElement("div")
-
+    const cell = document.createElement("div")
     cell.className = "cell"
-
     cell.style.gridColumn = pos[0] + 1
     cell.style.gridRow = pos[1] + 1
 
     if (i === 0) {
-
       cell.innerText = values[0]
+    } else if (i % 2 === 1) {
+      const opIndex = (i - 1) / 2
+      const op = ops[opIndex]
 
-    }
-
-    else if (i % 2 === 1) {
-
-      let op = ops[(i - 1) / 2]
-
-      cell.innerText = op > 0 ? "+" + op : op
-
-      cell.classList.add("op")
-
-    }
-
-    else {
-
+      // Guard: if op is missing, show nothing and flag it
+      if (typeof op !== "number") {
+        cell.innerText = ""
+        cell.classList.add("op")
+        cell.dataset.error = "missing-op"
+      } else {
+        cell.innerText = op > 0 ? `+${op}` : `${op}`
+        cell.classList.add("op")
+      }
+    } else {
       cell.classList.add("blank")
-
     }
 
     grid.appendChild(cell)
-
   })
-
 }
 
-
-
-// ==============================
-// Auto-generate on load
-// ==============================
-
+// Auto-run on load
 generate()
