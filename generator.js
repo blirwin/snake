@@ -8,19 +8,23 @@ function mustGetEl(id) {
   return el
 }
 
+function setStatus(msg) {
+  const el = document.getElementById("status")
+  if (el) el.textContent = msg || ""
+}
+
 function readNumber(id) {
-  // valueAsNumber returns a number or NaN for empty/invalid input :contentReference[oaicite:1]{index=1}
+  // Works for <input type="number">: returns number or NaN when blank/invalid
   return mustGetEl(id).valueAsNumber
 }
 
 function readChecked(id) {
-  // checkbox state is on the .checked property :contentReference[oaicite:2]{index=2}
   return !!mustGetEl(id).checked
 }
 
 function normalizeLayout(rawLayout) {
-  // We assume layout indices map to: 0=start, odd=op, even=blank
-  // => layout length must be odd so it ends on a blank result.
+  // Layout indices map to: 0=start, odd=op, even=blank
+  // => length must be odd so it ends on a blank.
   if (!Array.isArray(rawLayout) || rawLayout.length < 3) {
     throw new Error("Layout missing or too short.")
   }
@@ -31,18 +35,15 @@ function randomIntInclusive(lo, hi) {
   return Math.floor(Math.random() * (hi - lo + 1)) + lo
 }
 
-function clampToFiniteStart(minVal, maxVal) {
-  // If user left one side blank, choose a small reasonable start.
-  // If both finite, choose uniformly inside [min,max].
-  if (Number.isFinite(minVal) && Number.isFinite(maxVal)) {
-    return randomIntInclusive(minVal, maxVal)
-  }
-  // Otherwise default to 1..10 (keeps typical worksheet feel)
-  return randomIntInclusive(1, 10)
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+function inBounds(x, MIN, MAX) {
+  return x >= MIN && x <= MAX
 }
 
 function formatOp(op) {
-  // op object: { type: 'add'|'sub'|'mul'|'div', n: number }
   switch (op.type) {
     case "add": return `+${op.n}`
     case "sub": return `-${op.n}`
@@ -62,61 +63,106 @@ function applyOp(current, op) {
   }
 }
 
-function getAllowedOpTypes() {
+// ==============================
+// Read constraints from UI
+// ==============================
+
+function readConstraints() {
+  // Bounds: blank => infinite
+  let MIN = readNumber("minBound")
+  let MAX = readNumber("maxBound")
+  if (Number.isNaN(MIN)) MIN = -Infinity
+  if (Number.isNaN(MAX)) MAX = Infinity
+  if (MIN > MAX) [MIN, MAX] = [MAX, MIN]
+
+  const allowAdd = readChecked("allowAdd")
+  const allowSub = readChecked("allowSub")
+  const allowMul = readChecked("allowMul")
+  const allowDiv = readChecked("allowDiv")
+
+  // Split maxima: NO DEFAULTS.
+  let maxAddSub = readNumber("maxAddSub") // must be >= 1 to use add/sub
+  let maxMul = readNumber("maxMul")       // must be >= 2 to use mul
+  let maxDiv = readNumber("maxDiv")       // must be >= 2 to use div
+
+  maxAddSub = Number.isNaN(maxAddSub) ? null : Math.floor(maxAddSub)
+  maxMul = Number.isNaN(maxMul) ? null : Math.floor(maxMul)
+  maxDiv = Number.isNaN(maxDiv) ? null : Math.floor(maxDiv)
+
+  // Validate and build allowed types with their limits
   const allowed = []
-  if (readChecked("allowAdd")) allowed.push("add")
-  if (readChecked("allowSub")) allowed.push("sub")
-  if (readChecked("allowMul")) allowed.push("mul")
-  if (readChecked("allowDiv")) allowed.push("div")
 
-  // If user unchecks everything, fail safe to + and -.
-  if (allowed.length === 0) return ["add", "sub"]
-  return allowed
-}
+  if (allowAdd) {
+    if (maxAddSub === null || maxAddSub < 1) return { error: "Addition is checked but Max Add/Sub Amount is blank or < 1." }
+    allowed.push({ type: "add", max: maxAddSub })
+  }
+  if (allowSub) {
+    if (maxAddSub === null || maxAddSub < 1) return { error: "Subtraction is checked but Max Add/Sub Amount is blank or < 1." }
+    allowed.push({ type: "sub", max: maxAddSub })
+  }
+  if (allowMul) {
+    if (maxMul === null || maxMul < 2) return { error: "Multiplication is checked but Max Multiply Factor is blank or < 2." }
+    allowed.push({ type: "mul", max: maxMul })
+  }
+  if (allowDiv) {
+    if (maxDiv === null || maxDiv < 2) return { error: "Division is checked but Max Divide Divisor is blank or < 2." }
+    allowed.push({ type: "div", max: maxDiv })
+  }
 
-function pickRandom(arr) {
-  return arr[Math.floor(Math.random() * arr.length)]
-}
+  if (!allowed.length) {
+    return { error: "No operations are enabled. Check at least one operation." }
+  }
 
-function inBounds(x, MIN, MAX) {
-  return x >= MIN && x <= MAX
+  return { MIN, MAX, allowed }
 }
 
 // ==============================
-// Operation generation
+// Operation generation (bounds-aware)
 // ==============================
 
-function generateOpForCurrent(currentValue, maxOp, allowedTypes, MIN, MAX) {
-  // Try a bunch of candidates; return the first that keeps next value valid.
-  // This avoids weird puzzles where bounds are tight.
-  const MAX_TRIES = 2000
+function generateOpForCurrent(current, allowedSpecs, MIN, MAX) {
+  const MAX_TRIES = 6000
 
   for (let t = 0; t < MAX_TRIES; t++) {
-    const type = pickRandom(allowedTypes)
+    const spec = pickRandom(allowedSpecs)
+    const type = spec.type
+    const maxN = spec.max
 
-    // Choose magnitude/factor/divisor
-    // - For +/-, n in [1..maxOp]
-    // - For ×/÷, n in [2..maxOp] (exclude 1; it's boring)
-    let nMin = (type === "mul" || type === "div") ? 2 : 1
-    let nMax = Math.max(nMin, Math.floor(maxOp))
-
-    const n = randomIntInclusive(nMin, nMax)
-    const op = { type, n }
-
-    // Division must be integer (no fractions)
-    if (type === "div") {
-      if (n === 0) continue
-      if (currentValue % n !== 0) continue
+    if (type === "add" || type === "sub") {
+      const n = randomIntInclusive(1, maxN)
+      const op = { type, n }
+      const next = applyOp(current, op)
+      if (!inBounds(next, MIN, MAX)) continue
+      return { op, next }
     }
 
-    const next = applyOp(currentValue, op)
+    if (type === "mul") {
+      // pick factor 2..maxN but only if it keeps next in bounds
+      const candidates = []
+      for (let f = 2; f <= maxN; f++) {
+        const next = current * f
+        if (inBounds(next, MIN, MAX)) candidates.push(f)
+      }
+      if (!candidates.length) continue
+      const n = pickRandom(candidates)
+      const op = { type, n }
+      return { op, next: current * n }
+    }
 
-    // Guard division correctness
-    if (type === "div" && !Number.isInteger(next)) continue
-
-    if (!inBounds(next, MIN, MAX)) continue
-
-    return { op, next }
+    if (type === "div") {
+      // pick divisor 2..maxN that divides evenly and stays in bounds
+      const candidates = []
+      for (let d = 2; d <= maxN; d++) {
+        if (current % d !== 0) continue
+        const next = current / d
+        if (!Number.isInteger(next)) continue
+        if (inBounds(next, MIN, MAX)) candidates.push(d)
+      }
+      if (!candidates.length) continue
+      const n = pickRandom(candidates)
+      const op = { type, n }
+      return { op, next: current / n }
+    }
   }
 
   return null
@@ -127,38 +173,39 @@ function generateOpForCurrent(currentValue, maxOp, allowedTypes, MIN, MAX) {
 // ==============================
 
 function generate() {
+  setStatus("")
+
   const layout = normalizeLayout(layouts.snake1)
   const steps = (layout.length - 1) / 2
 
-  // Bounds from UI (blank => no bound)
-  let MIN = readNumber("minBound")
-  let MAX = readNumber("maxBound")
-  if (Number.isNaN(MIN)) MIN = -Infinity
-  if (Number.isNaN(MAX)) MAX = Infinity
-  if (MIN > MAX) [MIN, MAX] = [MAX, MIN]
+  const constraints = readConstraints()
+  if (constraints.error) {
+    setStatus(constraints.error)
+    return
+  }
 
-  // Max op from UI
-  let maxOp = readNumber("maxOp")
-  if (Number.isNaN(maxOp) || maxOp < 1) maxOp = 4
+  const { MIN, MAX, allowed } = constraints
 
-  const allowedTypes = getAllowedOpTypes()
-
-  // Start value
-  let start = clampToFiniteStart(MIN, MAX)
-  // Enforce bounds even if one side is infinite
-  if (start < MIN) start = MIN
-  if (start > MAX) start = MAX
+  // Start value selection
+  let start
+  if (Number.isFinite(MIN) && Number.isFinite(MAX)) {
+    start = randomIntInclusive(MIN, MAX)
+  } else {
+    // if user leaves bounds open-ended, keep start reasonable
+    start = randomIntInclusive(1, 10)
+    if (start < MIN) start = MIN
+    if (start > MAX) start = MAX
+  }
 
   const values = [start]
   const ops = []
 
   for (let i = 0; i < steps; i++) {
     const current = values[i]
-    const result = generateOpForCurrent(current, maxOp, allowedTypes, MIN, MAX)
+    const result = generateOpForCurrent(current, allowed, MIN, MAX)
 
     if (!result) {
-      // Bounds and allowed operations are too restrictive for this layout length.
-      console.warn("Could not generate a puzzle with these constraints. Try widening bounds, increasing maxOp, or allowing more operations.")
+      setStatus("Could not generate with these constraints. Widen bounds, reduce operation limits, or allow more operation types.")
       return
     }
 
@@ -190,9 +237,7 @@ function validateSnake(values, ops) {
 }
 
 // ==============================
-// Rendering
-// - layout order IS the path order
-// - Only the final blank reveals the answer
+// Rendering (final blank shows answer only)
 // ==============================
 
 function render(layout, values, ops) {
@@ -208,14 +253,13 @@ function render(layout, values, ops) {
     cell.style.gridRow = pos[1] + 1
 
     if (i === 0) {
-      cell.innerText = values[0]
+      cell.innerText = String(values[0])
     } else if (i % 2 === 1) {
       const op = ops[(i - 1) / 2]
       cell.innerText = formatOp(op)
       cell.classList.add("op")
     } else {
       cell.classList.add("blank")
-      // reveal only the final blank (self-check)
       cell.innerText = (i === lastIndex) ? String(values[values.length - 1]) : ""
     }
 
