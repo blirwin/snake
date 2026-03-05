@@ -24,7 +24,6 @@ html, body{
 
 /* ========== Layout ========== */
 .page{
-  /* slightly narrower + more side padding */
   max-width: 980px;
   margin: 0 auto;
   padding: 28px 36px 40px;
@@ -185,7 +184,6 @@ html, body{
 
 /* ========== Worksheet Area ========== */
 .workspace{
-  /* slightly more separation from controls */
   margin-top: 26px;
 }
 
@@ -197,8 +195,41 @@ html, body{
   padding: 18px;
 }
 
-/* Your puzzle grid */
-#worksheet{
+/* Titles above each puzzle */
+.sheetHeader{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 12px;
+}
+
+.sheetTitle{
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Two puzzles side-by-side */
+.twoUp{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.puzzleCard{
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  background: #fff;
+}
+
+/* IMPORTANT: each puzzle container MUST be a grid container */
+.worksheet,
+#worksheet1,
+#worksheet2{
   display: grid;
   gap: 16px;
   justify-content: start;
@@ -206,7 +237,6 @@ html, body{
 
 /* ========== Cells ========== */
 .cell{
-  /* slightly smaller puzzle */
   width: 102px;
   height: 82px;
   border: 3px solid #111827;
@@ -230,29 +260,24 @@ html, body{
 
 /* ========== Responsive ========== */
 @media (max-width: 980px){
-  .controls{
-    grid-template-columns: 1fr;
-  }
-  .limits{
-    grid-template-columns: 1fr;
-  }
-  .opsRow{
-    align-items: flex-start;
-  }
+  .controls{ grid-template-columns: 1fr; }
+  .limits{ grid-template-columns: 1fr; }
+  .opsRow{ align-items: flex-start; }
+
+  .twoUp{ grid-template-columns: 1fr; }
+
   .cell{
     width: 96px;
     height: 78px;
     font-size: 25px;
   }
-  #worksheet{
-    gap: 14px;
-  }
+
+  .worksheet{ gap: 14px; }
 }
 
 /* ========== Print ========== */
 @media print{
   :root{ --bg: #ffffff; --shadow: none; }
-
   body{ background: #fff; }
 
   .page{
@@ -267,26 +292,18 @@ html, body{
     padding: 0;
   }
 
-  .controlsCard{
-    display: none;
-  }
+  .controlsCard{ display: none; }
 
-  .header{
-    margin: 0 0 10px 0;
-  }
+  .header{ margin: 0 0 10px 0; }
+  .header h1{ font-size: 26px; }
 
-  .header h1{
-    font-size: 26px;
-  }
+  /* push puzzles slightly lower on printed page */
+  .sheet{ margin-top: 40px; }
 
-  /* Push puzzle slightly lower on printed page */
-  .sheet{
-    margin-top: 40px;
-  }
+  .twoUp{ gap: 14px; }
+  .puzzleCard{ border: none; padding: 0; }
 
-  #worksheet{
-    gap: 12px;
-  }
+  .worksheet{ gap: 12px; }
 
   .cell{
     width: 90px;
@@ -294,49 +311,4 @@ html, body{
     font-size: 22px;
     border-width: 2px;
   }
-/* Two puzzles on one page */
-.sheetHeader{
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  margin-bottom: 12px;
-}
-
-.sheetTitle{
-  font-size: 12px;
-  font-weight: 700;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.twoUp{
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  align-items: start;
-}
-
-.puzzleCard{
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 12px;
-  background: #fff;
-}
-
-/* Each puzzle grid */
-.worksheet{
-  display: grid;
-  gap: 14px;
-  justify-content: start;
-}
-
-/* Print: keep them side-by-side and tighten spacing */
-@media print{
-  .twoUp{ gap: 14px; }
-  .puzzleCard{ border: none; padding: 0; }
-  .sheetHeader{ margin-bottom: 8px; }
-  .worksheet{ gap: 10px; }
-}
-  
 }
