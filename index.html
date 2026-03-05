@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Snake Worksheet Generator</title>
-  <link rel="stylesheet" href="./styles.css?v=10" />
+  <link rel="stylesheet" href="./styles.css?v=11" />
 </head>
 
 <body>
@@ -15,16 +15,13 @@
     </div>
 
     <div class="card controlsCard">
-
-      <!-- How it works: ABOVE inputs -->
       <div class="callout">
         <div class="calloutTitle">How it works</div>
         <div class="calloutText">
-          If you check an operation, you must enter its max (Add/Sub ≥ 1; Multiply/Divide ≥ 2).
+          Choose bounds and allowed operations. The final square shows the correct final result (students fill the rest).
         </div>
       </div>
 
-      <!-- Compact inputs -->
       <div class="inputPanel">
         <div class="inputRow">
           <div class="fieldInline">
@@ -61,7 +58,6 @@
         </div>
       </div>
 
-      <!-- Allowed operations -->
       <div class="sectionHeader">Allowed operations</div>
       <div class="pillRow">
         <label class="pill">
@@ -85,24 +81,16 @@
         </label>
       </div>
 
-      <!-- Answer keys -->
-      <div class="sectionHeader">Answer keys</div>
-      <div class="pillRow">
-        <label class="pill" title="Reveal answers on screen (does not regenerate)">
-          <input id="showAnswers" type="checkbox" onchange="rerender()" />
+      <!-- Combined row: Generate | Print | Print+Key | Display Answers -->
+      <div class="actionRow">
+        <button class="btn primary" id="btnGenerate" type="button">Generate Puzzles</button>
+        <button class="btn" id="btnPrint" type="button">Print Puzzles</button>
+        <button class="btn" id="btnPrintKey" type="button">Print Puzzles &amp; Answer Page</button>
+
+        <label class="pill pillTight" title="Reveal answers on screen (does not regenerate)">
+          <input id="showAnswers" type="checkbox" />
           <span>Display Answers</span>
         </label>
-
-        <label class="pill" title="When printing, add a second page with the answer key">
-          <input id="printKey" type="checkbox" />
-          <span>Include answer page</span>
-        </label>
-      </div>
-
-      <!-- Buttons -->
-      <div class="buttonRow">
-        <button class="btn primary" onclick="generate()">Generate Puzzles</button>
-        <button class="btn" onclick="printWorksheet()">Print Puzzles</button>
       </div>
 
       <div id="status" class="status"></div>
@@ -129,7 +117,7 @@
       </div>
     </div>
 
-    <!-- ANSWER KEY -->
+    <!-- ANSWER KEY (screen-hidden; print-only when printingWithKey) -->
     <div class="workspace answerKeySection" id="answerKey">
       <div class="pageBreak"></div>
       <div class="sheet">
