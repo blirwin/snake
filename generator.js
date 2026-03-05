@@ -1,30 +1,35 @@
 /* global layouts */
 
-const CURRENT = {
-  puzzles: [], // [{ layoutName, layout, cols, rows, valuesByPath, opsByPath }]
-};
+const CURRENT = { puzzles: [] };
 
-function $(id) { return document.getElementById(id); }
+/**
+ * We will NOT assume op/value from layout index parity.
+ * Instead, we compute a cellType list for the layout:
+ * - index 0: "start" (value shown)
+ * - then repeat: "op", "value", "op", "value", ...
+ * BUT if layout length is even and would end on "op", we still allow it:
+ *   - we just stop generating on the last value cell in the path.
+ *   - the last visible answer cell is the last "value" cell.
+ *
+ * Also: we always show the final answer in the last VALUE cell,
+ * not necessarily the last layout cell.
+ */
 
-function setStatus(msg) { $("status").textContent = msg || ""; }
+function $(id){ return document.getElementById(id); }
+function setStatus(msg){ $("status").textContent = msg || ""; }
+function readChecked(id){ return !!($(id) && $(id).checked); }
 
-function readChecked(id) {
+function readIntOrNull(id){
   const el = $(id);
-  return !!(el && el.checked);
-}
-
-function readIntOrNull(id) {
-  const el = $(id);
-  if (!el) return null;
-  const raw = (el.value ?? "").toString().trim();
+  const raw = (el?.value ?? "").toString().trim();
   if (raw === "") return null;
   const n = Number(raw);
   return Number.isFinite(n) ? n : null;
 }
 
-function readRequiredInt(id, minValue) {
+function readRequiredInt(id, minValue){
   const el = $(id);
-  const raw = (el.value ?? "").toString().trim();
+  const raw = (el?.value ?? "").toString().trim();
   if (raw === "") return null;
   const n = Number(raw);
   if (!Number.isFinite(n)) return null;
@@ -33,7 +38,19 @@ function readRequiredInt(id, minValue) {
   return f;
 }
 
-function getAllowedKinds() {
+function randInt(minIncl, maxIncl){
+  return Math.floor(Math.random() * (maxIncl - minIncl + 1)) + minIncl;
+}
+
+function pickOne(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+
+function withinBounds(x, minB, maxB){
+  if (minB != null && x < minB) return false;
+  if (maxB != null && x > maxB) return false;
+  return true;
+}
+
+function getAllowedKinds(){
   const kinds = [];
   if (readChecked("allowAdd")) kinds.push("add");
   if (readChecked("allowSub")) kinds.push("sub");
@@ -42,23 +59,9 @@ function getAllowedKinds() {
   return kinds;
 }
 
-function randInt(minIncl, maxIncl) {
-  return Math.floor(Math.random() * (maxIncl - minIncl + 1)) + minIncl;
-}
-
-function pickOne(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function withinBounds(x, minB, maxB) {
-  if (minB != null && x < minB) return false;
-  if (maxB != null && x > maxB) return false;
-  return true;
-}
-
-function formatOp(op) {
-  if (!op) return ""; // defensive
-  switch (op.kind) {
+function formatOp(op){
+  if (!op) return "";
+  switch(op.kind){
     case "add": return `+${op.n}`;
     case "sub": return `-${op.n}`;
     case "mul": return `×${op.n}`;
@@ -67,8 +70,8 @@ function formatOp(op) {
   }
 }
 
-function applyOp(v, op) {
-  switch (op.kind) {
+function applyOp(v, op){
+  switch(op.kind){
     case "add": return v + op.n;
     case "sub": return v - op.n;
     case "mul": return v * op.n;
@@ -77,7 +80,44 @@ function applyOp(v, op) {
   }
 }
 
-function effectiveKinds(allowed, maxAddSub, maxMul, maxDiv) {
+/**
+ * Build a type map for each position in the layout.
+ * index 0 is a VALUE.
+ * Then alternate OP/VALUE for as long as possible.
+ * If layout ends on OP, that's fine — we just won't show a final answer there.
+ */
+function buildCellTypes(layoutLength){
+  const types = new Array(layoutLength).fill("empty");
+  types[0] = "value"; // start value shown
+
+  let expect = "op";
+  for (let i = 1; i < layoutLength; i++){
+    types[i] = expect;
+    expect = (expect === "op") ? "value" : "op";
+  }
+  return types;
+}
+
+/**
+ * Find the last index in the layout that is a VALUE cell.
+ */
+function lastValueIndex(cellTypes){
+  for (let i = cellTypes.length - 1; i >= 0; i--){
+    if (cellTypes[i] === "value") return i;
+  }
+  return 0;
+}
+
+/**
+ * Derive grid size from layout coords.
+ */
+function getDims(layout){
+  const cols = Math.max(...layout.map(p => p[0] + 1));
+  const rows = Math.max(...layout.map(p => p[1] + 1));
+  return { cols, rows };
+}
+
+function effectiveKinds(allowed, maxAddSub, maxMul, maxDiv){
   return allowed.filter(k => {
     if ((k === "add" || k === "sub") && maxAddSub == null) return false;
     if (k === "mul" && maxMul == null) return false;
@@ -87,47 +127,48 @@ function effectiveKinds(allowed, maxAddSub, maxMul, maxDiv) {
 }
 
 /**
- * Generate based on actual path indices, so ops and values always line up with the layout.
- * valuesByPath[pathIndex] is defined for even indices (0,2,4,...)
- * opsByPath[pathIndex] is defined for odd indices (1,3,5,...)
+ * Generate a puzzle consistent with the cellTypes.
+ * We only need ops for "op" cells that occur BEFORE the last value cell.
  */
-function generatePuzzle(layoutName = "snake1") {
+function generatePuzzle(layoutName="snake1"){
   const layout = layouts[layoutName];
-  if (!layout || !Array.isArray(layout) || layout.length < 3) {
+  if (!layout || !Array.isArray(layout) || layout.length < 3){
     throw new Error(`Missing/invalid layout: ${layoutName}`);
   }
 
-  const cols = Math.max(...layout.map(p => p[0] + 1));
-  const rows = Math.max(...layout.map(p => p[1] + 1));
+  const { cols, rows } = getDims(layout);
 
   const minB = readIntOrNull("minBound");
   const maxB = readIntOrNull("maxBound");
 
   const allowed = getAllowedKinds();
-  if (allowed.length === 0) throw new Error("Select at least one operation.");
+  if (!allowed.length) throw new Error("Select at least one operation.");
 
   const maxAddSub = readRequiredInt("maxAddSub", 1);
   const maxMul = readRequiredInt("maxMul", 2);
   const maxDiv = readRequiredInt("maxDiv", 2);
 
-  // If checked, require max
   if (readChecked("allowAdd") && maxAddSub == null) throw new Error("Enter Max Add/Sub (≥ 1) or uncheck Add.");
   if (readChecked("allowSub") && maxAddSub == null) throw new Error("Enter Max Add/Sub (≥ 1) or uncheck Subtract.");
   if (readChecked("allowMul") && maxMul == null) throw new Error("Enter Max Multiply (≥ 2) or uncheck Multiply.");
   if (readChecked("allowDiv") && maxDiv == null) throw new Error("Enter Max Divide (≥ 2) or uncheck Divide.");
 
   const kinds = effectiveKinds(allowed, maxAddSub, maxMul, maxDiv);
-  if (kinds.length === 0) throw new Error("No operations are usable (checked + max values).");
+  if (!kinds.length) throw new Error("No operations are usable (checked + max values).");
 
-  const MAX_RESTARTS = 250;
+  const cellTypes = buildCellTypes(layout.length);
+  const lastValIdx = lastValueIndex(cellTypes);
 
-  for (let attempt = 0; attempt < MAX_RESTARTS; attempt++) {
-    const valuesByPath = {}; // even indices only
-    const opsByPath = {};    // odd indices only
+  // We only generate through lastValIdx (inclusive). Anything after is ignored visually.
+  const MAX_RESTARTS = 400;
 
-    // start value
+  for (let attempt = 0; attempt < MAX_RESTARTS; attempt++){
+    const valuesByIndex = {}; // for indices where type=value
+    const opsByIndex = {};    // for indices where type=op (before lastValIdx)
+
+    // pick start
     let start;
-    if (minB != null || maxB != null) {
+    if (minB != null || maxB != null){
       const lo = (minB != null) ? minB : -20;
       const hi = (maxB != null) ? maxB : 20;
       start = randInt(lo, hi);
@@ -135,65 +176,52 @@ function generatePuzzle(layoutName = "snake1") {
       start = randInt(0, 12);
     }
     if (!withinBounds(start, minB, maxB)) continue;
-
-    valuesByPath[0] = start;
+    valuesByIndex[0] = start;
 
     let ok = true;
 
-    // walk the path index-by-index
-    for (let pathIndex = 1; pathIndex < layout.length; pathIndex++) {
-      if (pathIndex % 2 === 1) {
-        // op cell: choose an op that can lead to a valid next value later
-        // We pick op now, but validate when we try to compute next even value.
-        // Still, we can just store it; validation happens next step.
-        const kind = pickOne(kinds);
+    // Walk indices up to lastValIdx
+    for (let i = 1; i <= lastValIdx; i++){
+      const t = cellTypes[i];
 
+      if (t === "op"){
+        // choose an op now; validate next value when we compute it
+        const kind = pickOne(kinds);
         let op;
+
         if (kind === "add") op = { kind, n: randInt(1, maxAddSub) };
         else if (kind === "sub") op = { kind, n: randInt(1, maxAddSub) };
         else if (kind === "mul") op = { kind, n: randInt(2, maxMul) };
         else op = { kind, n: randInt(2, maxDiv) };
 
-        opsByPath[pathIndex] = op;
-      } else {
-        // value cell: compute from previous value and previous op
-        const prevValueIndex = pathIndex - 2;
-        const opIndex = pathIndex - 1;
+        opsByIndex[i] = op;
+      } else if (t === "value"){
+        // compute this value from previous value and previous op
+        // find previous value index (i-2 under our alternating pattern)
+        const prevValIdx = i - 2;
+        const opIdx = i - 1;
 
-        const prevVal = valuesByPath[prevValueIndex];
-        const op = opsByPath[opIndex];
-
-        if (prevVal == null || !op) {
-          ok = false;
-          break;
+        const prevVal = valuesByIndex[prevValIdx];
+        const op = opsByIndex[opIdx];
+        if (prevVal == null || !op){
+          ok = false; break;
         }
 
-        let candidate = applyOp(prevVal, op);
-
-        // division must be integer
-        if (op.kind === "div" && !Number.isInteger(candidate)) {
-          ok = false;
-          break;
+        let next = applyOp(prevVal, op);
+        if (op.kind === "div" && !Number.isInteger(next)){
+          ok = false; break;
+        }
+        if (!withinBounds(next, minB, maxB)){
+          ok = false; break;
         }
 
-        if (!withinBounds(candidate, minB, maxB)) {
-          ok = false;
-          break;
-        }
-
-        valuesByPath[pathIndex] = candidate;
+        valuesByIndex[i] = next;
       }
     }
 
-    // If we failed due to a bad op choice, restart. This is simplest and robust.
     if (!ok) continue;
 
-    // Ensure last cell is a value cell; if it's not, your layout is invalid for this puzzle model.
-    if ((layout.length - 1) % 2 !== 0) {
-      throw new Error("Layout must end on a VALUE cell (even index). Your snake layout ends on an operation cell.");
-    }
-
-    return { layoutName, layout, cols, rows, valuesByPath, opsByPath };
+    return { layoutName, layout, cols, rows, cellTypes, lastValIdx, valuesByIndex, opsByIndex };
   }
 
   throw new Error("Could not generate a puzzle with those constraints. Loosen bounds or reduce Multiply/Divide.");
@@ -201,7 +229,7 @@ function generatePuzzle(layoutName = "snake1") {
 
 /* ===== Rendering + scaling ===== */
 
-function ensureSizer(gridEl) {
+function ensureSizer(gridEl){
   const parent = gridEl.parentElement;
   if (parent && parent.classList && parent.classList.contains("worksheetSizer")) return parent;
 
@@ -212,7 +240,7 @@ function ensureSizer(gridEl) {
   return sizer;
 }
 
-function measurePuzzlePixelSize(cols, rows) {
+function measurePuzzlePixelSize(cols, rows){
   const cs = getComputedStyle(document.documentElement);
   const cellW = parseFloat(cs.getPropertyValue("--cell-w")) || 100;
   const cellH = parseFloat(cs.getPropertyValue("--cell-h")) || 80;
@@ -224,70 +252,77 @@ function measurePuzzlePixelSize(cols, rows) {
   };
 }
 
-function renderTo(targetId, puzzle, showAnswers) {
+function renderTo(targetId, puzzle, showAnswers){
   const grid = $(targetId);
   if (!grid) return;
 
   grid.innerHTML = "";
   grid.style.setProperty("--cols", puzzle.cols);
 
-  const lastPathIndex = puzzle.layout.length - 1;
-
-  puzzle.layout.forEach((pos, pathIndex) => {
+  // We will still render ALL layout squares, but:
+  // - only value cells up to lastValIdx participate
+  // - if layout ends on op, that op just displays, but isn't the "final answer"
+  puzzle.layout.forEach((pos, idx) => {
     const cell = document.createElement("div");
     cell.className = "cell";
     cell.style.gridColumn = (pos[0] + 1);
     cell.style.gridRow = (pos[1] + 1);
 
-    if (pathIndex === 0) {
-      cell.textContent = String(puzzle.valuesByPath[0]);
-    } else if (pathIndex % 2 === 1) {
-      const op = puzzle.opsByPath[pathIndex];
+    const t = puzzle.cellTypes[idx];
+
+    if (idx === 0){
+      cell.textContent = String(puzzle.valuesByIndex[0]);
+    } else if (t === "op" && idx <= puzzle.lastValIdx){
+      const op = puzzle.opsByIndex[idx];
       cell.textContent = formatOp(op);
       cell.classList.add("op");
-    } else {
-      const val = puzzle.valuesByPath[pathIndex];
-      const isFinal = (pathIndex === lastPathIndex);
+    } else if (t === "value" && idx <= puzzle.lastValIdx){
+      const val = puzzle.valuesByIndex[idx];
+      const isFinalValueCell = (idx === puzzle.lastValIdx);
 
-      if (isFinal) {
-        cell.textContent = String(val);
-      } else if (showAnswers) {
+      if (isFinalValueCell){
+        cell.textContent = String(val); // always show final answer
+      } else if (showAnswers){
         cell.textContent = String(val);
       } else {
         cell.textContent = "";
         cell.classList.add("blank");
       }
+    } else {
+      // indices beyond lastValIdx: make them look like blanks (or empty)
+      // This keeps your shape without forcing the model to use the tail.
+      cell.textContent = "";
+      cell.classList.add("blank");
     }
 
     grid.appendChild(cell);
   });
 
-  // Screen-fit scaling only
+  // screen-fit scaling only
   const sizer = ensureSizer(grid);
   const { width, height } = measurePuzzlePixelSize(puzzle.cols, puzzle.rows);
 
-  sizer.style.setProperty("--grid-w", `${width}px`);
-  sizer.style.setProperty("--grid-h", `${height}px`);
-
   const puzzleCard = sizer.closest(".puzzleCard");
   let avail = 0;
-  if (puzzleCard) {
+  if (puzzleCard){
     const rect = puzzleCard.getBoundingClientRect();
     const style = getComputedStyle(puzzleCard);
     const padL = parseFloat(style.paddingLeft) || 0;
     const padR = parseFloat(style.paddingRight) || 0;
-    avail = rect.width - padL - padR;
+    avail = rect.width - padL - padR - 2;
   }
 
   let scale = 1;
   if (avail > 0 && width > 0) scale = Math.min(1, avail / width);
 
   sizer.style.setProperty("--scale", scale.toString());
+  sizer.style.setProperty("--grid-w", `${width}px`);
+  sizer.style.setProperty("--grid-h", `${height}px`);
   sizer.style.width = `${width}px`;
   sizer.style.height = `${height}px`;
 }
 
-function clearSizerInline(targetId) {
+function clearSizerInline(targetId){
   const grid = $(targetId);
   if (!grid) return;
   const sizer = grid.parentElement;
@@ -303,47 +338,45 @@ function clearSizerInline(targetId) {
 
 /* ===== App actions ===== */
 
-function rerender() {
+function rerender(){
   if (CURRENT.puzzles.length !== 2) return;
-
   const show = readChecked("showAnswers");
 
   renderTo("worksheet1", CURRENT.puzzles[0], show);
   renderTo("worksheet2", CURRENT.puzzles[1], show);
 
-  // keys always rendered; shown only when printingWithKey
+  // always keep keys rendered for print
   renderTo("key1", CURRENT.puzzles[0], true);
   renderTo("key2", CURRENT.puzzles[1], true);
 }
 
-function generate() {
-  try {
+function generate(){
+  try{
     setStatus("");
     const p1 = generatePuzzle("snake1");
     const p2 = generatePuzzle("snake1");
     CURRENT.puzzles = [p1, p2];
     rerender();
-  } catch (e) {
+  } catch(e){
     setStatus(e.message || String(e));
   }
 }
 
-function prepareForPrint(includeKey) {
+function prepareForPrint(includeKey){
   if (includeKey) document.body.classList.add("printingWithKey");
   else document.body.classList.remove("printingWithKey");
 
-  // Render current state
   rerender();
 
-  // iOS print fix: remove inline scaling so print CSS can lay out in normal flow
+  // iOS print fix: remove inline scaling so print CSS normal flow works
   clearSizerInline("worksheet1");
   clearSizerInline("worksheet2");
   clearSizerInline("key1");
   clearSizerInline("key2");
 }
 
-function printPuzzlesOnly() {
-  if (CURRENT.puzzles.length !== 2) {
+function printPuzzlesOnly(){
+  if (CURRENT.puzzles.length !== 2){
     setStatus("No puzzles yet. Click Generate Puzzles first.");
     return;
   }
@@ -352,8 +385,8 @@ function printPuzzlesOnly() {
   window.print();
 }
 
-function printPuzzlesWithKey() {
-  if (CURRENT.puzzles.length !== 2) {
+function printPuzzlesWithKey(){
+  if (CURRENT.puzzles.length !== 2){
     setStatus("No puzzles yet. Click Generate Puzzles first.");
     return;
   }
@@ -362,14 +395,12 @@ function printPuzzlesWithKey() {
   window.print();
 }
 
-// Cleanup (best-effort)
 window.addEventListener("afterprint", () => {
   document.body.classList.remove("printingWithKey");
-  // Restore scaling for screen
   rerender();
 });
 
-function wireUI() {
+function wireUI(){
   $("btnGenerate").addEventListener("click", generate);
   $("btnPrint").addEventListener("click", printPuzzlesOnly);
   $("btnPrintKey").addEventListener("click", printPuzzlesWithKey);
@@ -377,3 +408,4 @@ function wireUI() {
 }
 
 wireUI();
+// generate(); // optional on load
