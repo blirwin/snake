@@ -1,4 +1,11 @@
 // ==============================
+// Global state: current puzzle
+// ==============================
+
+let CURRENT_PUZZLE = null
+// { layout, values, ops }
+
+// ==============================
 // Helpers
 // ==============================
 
@@ -103,9 +110,7 @@ function readConstraints() {
     allowed.push({ type: "div", max: maxDiv })
   }
 
-  if (!allowed.length) {
-    return { error: "No operations are enabled. Check at least one operation." }
-  }
+  if (!allowed.length) return { error: "No operations are enabled. Check at least one operation." }
 
   return { MIN, MAX, allowed }
 }
@@ -159,7 +164,7 @@ function generateOpForCurrent(current, allowedSpecs, MIN, MAX) {
 }
 
 // ==============================
-// Main generator
+// Generate puzzle data (no rendering here)
 // ==============================
 
 function generate() {
@@ -203,9 +208,25 @@ function generate() {
 
   validateSnake(values, ops)
 
-  // NEW: pass showAnswers flag into render
+  // Store puzzle for later re-rendering
+  CURRENT_PUZZLE = { layout, values, ops }
+
+  // Render using current showAnswers toggle
+  rerender()
+}
+
+// ==============================
+// Rerender existing puzzle (no regeneration)
+// ==============================
+
+function rerender() {
+  if (!CURRENT_PUZZLE) {
+    setStatus("No puzzle yet. Click Generate.")
+    return
+  }
+  setStatus("")
   const showAnswers = readChecked("showAnswers")
-  render(layout, values, ops, showAnswers)
+  render(CURRENT_PUZZLE.layout, CURRENT_PUZZLE.values, CURRENT_PUZZLE.ops, showAnswers)
 }
 
 // ==============================
@@ -229,8 +250,6 @@ function validateSnake(values, ops) {
 
 // ==============================
 // Rendering
-// - If showAnswers = false: only final blank shows answer
-// - If showAnswers = true: ALL blanks show answers (answer key mode)
 // ==============================
 
 function render(layout, values, ops, showAnswers) {
@@ -255,11 +274,9 @@ function render(layout, values, ops, showAnswers) {
       cell.classList.add("blank")
 
       if (showAnswers) {
-        // Blank indices 2,4,6... correspond to values[1], values[2], values[3]...
-        const answerIndex = i / 2
+        const answerIndex = i / 2 // blanks map to values[1..]
         cell.innerText = String(values[answerIndex])
       } else {
-        // Self-check only
         cell.innerText = (i === lastIndex) ? String(values[values.length - 1]) : ""
       }
     }
@@ -268,5 +285,5 @@ function render(layout, values, ops, showAnswers) {
   })
 }
 
-// Auto-run on load
+// Auto-generate on load
 generate()
