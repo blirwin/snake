@@ -73,46 +73,41 @@ function validateSnake(values, ops) {
 // ==============================
 
 function render(layout, values, ops) {
-
   const grid = document.getElementById("worksheet")
-
   grid.innerHTML = ""
 
+  // If layout length is odd, last index is an even "blank" slot.
+  // We normalize defensively anyway.
+  const lastIndex = layout.length - 1
+
   layout.forEach((pos, i) => {
-
-    let cell = document.createElement("div")
-
+    const cell = document.createElement("div")
     cell.className = "cell"
-
     cell.style.gridColumn = pos[0] + 1
     cell.style.gridRow = pos[1] + 1
 
     if (i === 0) {
-
+      // Start number
       cell.innerText = values[0]
-
-    }
-
-    else if (i % 2 === 1) {
-
-      let op = ops[(i - 1) / 2]
-
-      cell.innerText = op > 0 ? "+" + op : op
-
+    } else if (i % 2 === 1) {
+      // Operation cells
+      const op = ops[(i - 1) / 2]
+      cell.innerText = (op > 0 ? `+${op}` : `${op}`)
       cell.classList.add("op")
-
-    }
-
-    else {
-
+    } else {
+      // Blank answer cells
       cell.classList.add("blank")
 
+      // Only reveal the FINAL blank (self-check)
+      if (i === lastIndex) {
+        cell.innerText = values[values.length - 1]
+      } else {
+        cell.innerText = ""
+      }
     }
 
     grid.appendChild(cell)
-
   })
-
 }
 
 
