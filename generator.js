@@ -81,9 +81,6 @@ function applyOp(v, op) {
   }
 }
 
-/**
- * Alternating types: value, op, value, op...
- */
 function buildCellTypes(len) {
   const types = new Array(len);
   types[0] = "value";
@@ -112,13 +109,9 @@ function makeOp(kind, maxAddSub, maxMul, maxDiv) {
   if (kind === "add") return { kind, n: randInt(1, maxAddSub) };
   if (kind === "sub") return { kind, n: randInt(1, maxAddSub) };
   if (kind === "mul") return { kind, n: randInt(2, maxMul) };
-  return { kind, n: randInt(2, maxDiv) }; // div
+  return { kind, n: randInt(2, maxDiv) };
 }
 
-/**
- * True iff b is the immediate inverse of a (same magnitude, opposite operation).
- * +k <-> -k, ×k <-> ÷k
- */
 function isInverseOp(a, b) {
   if (!a || !b) return false;
   if (a.n !== b.n) return false;
@@ -131,29 +124,15 @@ function isInverseOp(a, b) {
   );
 }
 
-/**
- * Choose a new op that is NOT the inverse of prevOp.
- * We try several random draws; if it's impossible (constraints too tight),
- * we fall back to any op to avoid infinite loops.
- */
 function pickNonInverseOp(prevOp, kinds, maxAddSub, maxMul, maxDiv) {
   const TRIES = 40;
-
   for (let t = 0; t < TRIES; t++) {
     const candidate = makeOp(pickOne(kinds), maxAddSub, maxMul, maxDiv);
     if (!isInverseOp(prevOp, candidate)) return candidate;
   }
-
-  // fallback (can happen if only one magnitude/op option exists)
   return makeOp(pickOne(kinds), maxAddSub, maxMul, maxDiv);
 }
 
-/**
- * Generates a puzzle and trims the layout so it ends on a VALUE cell,
- * removing your "extra last square" without editing layouts.
- *
- * Also enforces: next op cannot be the inverse of the previous op.
- */
 function generatePuzzle(layoutName = "snake1") {
   const fullLayout = layouts[layoutName];
   if (!fullLayout || !Array.isArray(fullLayout) || fullLayout.length < 3) {
@@ -182,7 +161,7 @@ function generatePuzzle(layoutName = "snake1") {
   const kinds = effectiveKinds(allowed, maxAddSub, maxMul, maxDiv);
   if (!kinds.length) throw new Error("No operations are usable (checked + max values).");
 
-  // trim layout to last value cell (removes trailing dangling cell)
+  // Trim layout to last value cell (removes dangling last cell)
   const typesFull = buildCellTypes(fullLayout.length);
   const lastValIdxFull = lastValueIndex(typesFull);
 
@@ -198,7 +177,6 @@ function generatePuzzle(layoutName = "snake1") {
     const valuesByIndex = {};
     const opsByIndex = {};
 
-    // choose start near bounds to reduce runaway
     let start;
     if (minB != null && maxB != null) start = randInt(minB, maxB);
     else if (minB != null && maxB == null) start = minB + randInt(0, 12);
@@ -221,7 +199,6 @@ function generatePuzzle(layoutName = "snake1") {
         continue;
       }
 
-      // value cell
       const prevValIdx = i - 2;
       const opIdx = i - 1;
 
@@ -298,14 +275,9 @@ function renderTo(targetId, puzzle, showAnswers) {
       const val = puzzle.valuesByIndex[idx];
       const isFinal = (idx === puzzle.lastValIdx);
 
-      if (isFinal) {
-        cell.textContent = String(val);
-      } else if (showAnswers) {
-        cell.textContent = String(val);
-      } else {
-        cell.textContent = "";
-        cell.classList.add("blank");
-      }
+      if (isFinal) cell.textContent = String(val);
+      else if (showAnswers) cell.textContent = String(val);
+      else { cell.textContent = ""; cell.classList.add("blank"); }
     }
 
     grid.appendChild(cell);
@@ -363,11 +335,14 @@ function rerender() {
   renderTo("key2", CURRENT.puzzles[1], true);
 }
 
+/**
+ * ✅ FIX: use snake1 for BOTH puzzles so Puzzle 2 is not smaller.
+ */
 function generate() {
   try {
     setStatus("");
     const p1 = generatePuzzle("snake1");
-    const p2 = generatePuzzle("snake2");
+    const p2 = generatePuzzle("snake1"); // <-- was snake2, making it smaller
     CURRENT.puzzles = [p1, p2];
     rerender();
   } catch (e) {
