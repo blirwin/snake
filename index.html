@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Snake Worksheet Generator</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<h1>Snake Worksheet Generator</h1>
+
+<label>Start Number</label>
+<input id="start" type="number" value="5">
+
+<label>Length</label>
+<input id="length" type="number" value="30">
+
+<label>Max Operation</label>
+<input id="difficulty" type="number" value="5">
+
+<button onclick="generate()">Generate Puzzle</button>
+
+<button onclick="printWorksheet()">Print</button>
+
+<div id="worksheet"></div>
+
+<script src="layout.js"></script>
+<script src="generator.js"></script>
+</body>
+
+</html>
