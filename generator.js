@@ -56,6 +56,11 @@ function applyOp(current, op) {
   }
 }
 
+/**
+ * Read constraints:
+ * - Inputs are prepopulated with 10 in HTML, but if user clears them,
+ *   we treat them as null and do NOT auto-fill.
+ */
 function readConstraints() {
   let MIN = readNumber("minBound")
   let MAX = readNumber("maxBound")
@@ -79,19 +84,19 @@ function readConstraints() {
   const allowed = []
 
   if (allowAdd) {
-    if (maxAddSub === null || maxAddSub < 1) return { error: "Addition is checked but Max Add/Sub Amount is blank or < 1." }
+    if (maxAddSub === null || maxAddSub < 1) return { error: "Add is checked but Max Add/Sub Amount is blank or < 1." }
     allowed.push({ type: "add", max: maxAddSub })
   }
   if (allowSub) {
-    if (maxAddSub === null || maxAddSub < 1) return { error: "Subtraction is checked but Max Add/Sub Amount is blank or < 1." }
+    if (maxAddSub === null || maxAddSub < 1) return { error: "Subtract is checked but Max Add/Sub Amount is blank or < 1." }
     allowed.push({ type: "sub", max: maxAddSub })
   }
   if (allowMul) {
-    if (maxMul === null || maxMul < 2) return { error: "Multiplication is checked but Max Multiply Factor is blank or < 2." }
+    if (maxMul === null || maxMul < 2) return { error: "Multiply is checked but Max Multiply Factor is blank or < 2." }
     allowed.push({ type: "mul", max: maxMul })
   }
   if (allowDiv) {
-    if (maxDiv === null || maxDiv < 2) return { error: "Division is checked but Max Divide Divisor is blank or < 2." }
+    if (maxDiv === null || maxDiv < 2) return { error: "Divide is checked but Max Divide Divisor is blank or < 2." }
     allowed.push({ type: "div", max: maxDiv })
   }
 
@@ -190,12 +195,79 @@ function puzzlesEqual(a, b) {
   return true
 }
 
+/** Compute grid dimensions from layout coords */
+function getLayoutDims(layout) {
+  let maxX = 0
+  let maxY = 0
+  for (const [x, y] of layout) {
+    if (x > maxX) maxX = x
+    if (y > maxY) maxY = y
+  }
+  // coords are 0-based; cols/rows are +1
+  return { cols: maxX + 1, rows: maxY + 1 }
+}
+
+/**
+ * Ensure each worksheet has a sizer wrapper so we can scale it.
+ * If it already exists, reuse it.
+ */
+function ensureSizer(gridEl) {
+  let sizer = gridEl.parentElement
+  if (!sizer || !sizer.classList.contains("worksheetSizer")) {
+    sizer = document.createElement("div")
+    sizer.className = "worksheetSizer"
+    gridEl.replaceWith(sizer)
+    sizer.appendChild(gridEl)
+  }
+  return sizer
+}
+
+/**
+ * Compute and apply scale so the puzzle fits inside its card.
+ * We do this AFTER render, because we need real container width.
+ */
+function fitToContainer(containerId, cols, rows) {
+  const grid = mustGetEl(containerId)
+  const sizer = ensureSizer(grid)
+
+  const rootStyles = getComputedStyle(document.documentElement)
+  const cellW = parseFloat(rootStyles.getPropertyValue("--cell-w")) || 102
+  const cellH = parseFloat(rootStyles.getPropertyValue("--cell-h")) || 82
+  const gap = parseFloat(rootStyles.getPropertyValue("--cell-gap")) || 16
+
+  // Total intrinsic puzzle size (grid gaps are between tracks)
+  const gridW = cols * cellW + (cols - 1) * gap
+  const gridH = rows * cellH + (rows - 1) * gap
+
+  // Available width inside puzzleCard = its content box
+  const card = grid.closest(".puzzleCard")
+  const availableW = card ? card.clientWidth : gridW
+
+  // Scale down if needed. Never scale up.
+  const scale = Math.min(1, availableW / gridW)
+
+  // Set variables so CSS can size wrapper properly
+  sizer.style.setProperty("--scale", String(scale))
+  sizer.style.setProperty("--grid-w", `${gridW}px`)
+  sizer.style.setProperty("--grid-h", `${gridH}px`)
+
+  // Also set height so the scaled content doesn't overlap following content
+  // (scaled height is gridH * scale)
+  sizer.style.height = `${gridH * scale}px`
+}
+
 function renderTo(containerId, puzzle, showAnswers) {
   const grid = mustGetEl(containerId)
   grid.innerHTML = ""
 
   const { layout, values, ops } = puzzle
   const lastIndex = layout.length - 1
+  const { cols, rows } = getLayoutDims(layout)
+
+  // Set per-grid sizing variables
+  grid.style.setProperty("--cols", String(cols))
+  // rows not needed for template, but used by fit calc
+  grid.style.setProperty("--rows", String(rows))
 
   layout.forEach((pos, i) => {
     const cell = document.createElement("div")
@@ -220,6 +292,11 @@ function renderTo(containerId, puzzle, showAnswers) {
     }
 
     grid.appendChild(cell)
+  })
+
+  // Fit after DOM paint
+  requestAnimationFrame(() => {
+    fitToContainer(containerId, cols, rows)
   })
 }
 
@@ -267,12 +344,6 @@ function generate() {
   rerender()
 }
 
-/**
- * Print:
- * - Student puzzles always print.
- * - Answer key prints on page 2 ONLY if checkbox is checked.
- * Uses CSS @media print + a body class.
- */
 function printWorksheet() {
   if (!CURRENT_PUZZLES.length) {
     setStatus("No puzzles yet. Click Generate.")
@@ -290,10 +361,27 @@ function printWorksheet() {
   }
 
   window.print()
-
-  // Always clean up after printing so screen behavior stays sane
   document.body.classList.remove("printingWithKey")
 }
 
-// auto-generate on load
+/* Re-fit on resize so it stays correct across screen sizes */
+window.addEventListener("resize", () => {
+  if (!CURRENT_PUZZLES.length) return
+
+  // Re-fit currently rendered grids (no regeneration)
+  const layout1 = CURRENT_PUZZLES[0].layout
+  const layout2 = CURRENT_PUZZLES[1].layout
+  const d1 = getLayoutDims(layout1)
+  const d2 = getLayoutDims(layout2)
+
+  fitToContainer("worksheet1", d1.cols, d1.rows)
+  fitToContainer("worksheet2", d2.cols, d2.rows)
+
+  // key might exist in DOM if previously printed
+  const key1 = document.getElementById("key1")
+  const key2 = document.getElementById("key2")
+  if (key1 && key1.children.length) fitToContainer("key1", d1.cols, d1.rows)
+  if (key2 && key2.children.length) fitToContainer("key2", d2.cols, d2.rows)
+})
+
 generate()
